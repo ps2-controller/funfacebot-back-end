@@ -7,6 +7,7 @@ let SlackBot = require('slackbots');
 const EthCrypto = require('eth-crypto');
 const contracts = require('./Contracts/contracts.js');
 const Web3 = require('web3');
+let fs = require('fs');
 
 const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
 var HDWalletProvider = require("truffle-hdwallet-provider");
@@ -78,13 +79,27 @@ bot.on("message", async msg => {
     switch (msg.text) {
     case "n":
       if (msg.channel[0] === "D" && msg.bot_id === undefined) {
-        let spaceId = {spaceId: 8};
+        let spaceId = {spaceId: 13};
         let img = await getImage(spaceId.spaceId);
-        let x = 'hi';
-        console.log(x)
-        app.post('https://slack.com/api/files.upload', (x, res) => {
-            res.send('posted')
+        let imgAsBase64 = img.substring(img.indexOf(',') + 1)
+        let imgBuffer = new Buffer.from(imgAsBase64, 'base64');
+        let imgAsFile = fs.writeFile('image.png', imgBuffer, (err) => {
+          console.log(err);
         })
+        console.log(imgBuffer)
+        request.post({ url: 'https://slack.com/api/files.upload',
+          formData: {
+            token: slackToken,
+            tile: "Image",
+            filename: "image.png",
+            filetype: "auto",
+            channels: "testing",
+            file: imgAsFile,
+          },
+        }, function (err, response) {
+            // just for debugging
+            console.log(JSON.parse(response.body));
+        });
       }
       break
     }
