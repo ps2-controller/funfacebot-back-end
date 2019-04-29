@@ -29,15 +29,21 @@ const thisWallet = new ethers.Wallet(wallet.privateKey, wallet.provider);
 async function getImage(spaceId){
     let accessControls = new ethers.Contract(contracts.accessControlsAddress, contracts.accessControlsAbi, thisWallet);
     let arr = await accessControls.getWhiteListBySpace(spaceId);
-    console.log(arr)
+    let i;
     let encryptedImages = [];
-    for(let i = 0; i < arr.length - 1; i++){
-        console.log('hi')
+    for(i = 0; i < arr.length; i++){
         const toAddEncrypted = await Box.getSpace(arr[i], contracts.accessControlsAddress.toString() + spaceId.toString());
-        console.log(toAddEncrypted);
-        encryptedImages.push(toAddEncrypted.files);
+        // console.log(toAddEncrypted['files']);
+        // let box = await Box.openBox(arr[i], provider);
+        // box.onSyncDone(async () => {
+        //     console.log('hi');
+        //     let workSpace = await box.openSpace(contracts.accessControls.address.toString() + spaceId.toString());
+        //     let toAddEncrypted = await workSpace.public.get('field');
+        encryptedImages.push(toAddEncrypted['files']);
+        // })
     }
     let mergedEncryptedImages = [].concat.apply([], encryptedImages);
+    // console.log(mergedEncryptedImages);
     let j;
     let mergedDecryptedImages=[]
     let randomImage;
@@ -53,18 +59,29 @@ var bot = new SlackBot({
     name: 'Fun Face Bot'
 });
 
+const getRandomJoke = (callback, user) => {
+    return request("https://icanhazdadjoke.com/slack", (error, response) => {
+      if (error) {
+        console.log("Error: ", error)
+      } else {
+        let jokeJSON = JSON.parse(response.body)
+        let joke = jokeJSON.attachments[0].text
+        return callback(joke, user)
+      }
+    })
+  }
 
 const postMessage = (message, user) => {
 bot.postMessage(user, message, { as_user: true })
 }
 bot.on("message", async msg => {
     switch (msg.text) {
-    case "photobomb":
-      if (msg.channel && msg.bot_id === undefined) {
-        let spaceId = {spaceId: 15};
+    case "n":
+      if (msg.channel[0] === "D" && msg.bot_id === undefined) {
+        let spaceId = {spaceId: 13};
         let img = await getImage(spaceId.spaceId);
         let imgAsBase64 = img.substring(img.indexOf(',') + 1)
-        require('fs').writeFileSync('image.png', imgAsBase64, 'base64', (err) => {
+        await require('fs').writeFile('image.png', imgAsBase64, 'base64', (err) => {
           console.log(err);
         })
 
@@ -74,14 +91,15 @@ bot.on("message", async msg => {
           tile: "Image",
           filename: "image.png",
           filetype: "auto",
-          channels: msg.channel,
+          channels: "testing",
           file: require('fs').createReadStream('./image.png'),
         },
       }, function (err, response) {
           // just for debugging
-          console.log(response.body);
+          console.log(response);
       })};
       
 
     }
 })
+
