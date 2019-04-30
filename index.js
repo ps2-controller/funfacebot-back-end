@@ -25,9 +25,13 @@ const app = express();
 
 const thisWallet = new ethers.Wallet(wallet.privateKey, wallet.provider);
 
+console.log(contracts.accessControlsAddress)
+const accessControls = new ethers.Contract(contracts.accessControlsAddress, contracts.accessControlsAbi, thisWallet);
+
+
+let workspaceSpaceId;
 
 async function getImage(spaceId){
-    let accessControls = new ethers.Contract(contracts.accessControlsAddress, contracts.accessControlsAbi, thisWallet);
     let arr = await accessControls.getWhiteListBySpace(spaceId);
     console.log(arr)
     let encryptedImages = [];
@@ -57,11 +61,13 @@ var bot = new SlackBot({
 const postMessage = (message, user) => {
 bot.postMessage(user, message, { as_user: true })
 }
+
 bot.on("message", async msg => {
-    switch (msg.text) {
-    case "photobomb":
+  if(msg.text){
+    if(msg.text === 'loga'){
+      console.log('a')
       if (msg.channel && msg.bot_id === undefined) {
-        let spaceId = {spaceId: 15};
+        let spaceId = {spaceId: workspaceSpaceId};
         let img = await getImage(spaceId.spaceId);
         let imgAsBase64 = img.substring(img.indexOf(',') + 1)
         require('fs').writeFileSync('image.png', imgAsBase64, 'base64', (err) => {
@@ -69,19 +75,84 @@ bot.on("message", async msg => {
         })
 
         await request.post({ url: 'https://slack.com/api/files.upload',
-        formData: {
-          token: slackToken,
-          tile: "Image",
-          filename: "image.png",
-          filetype: "auto",
-          channels: msg.channel,
-          file: require('fs').createReadStream('./image.png'),
-        },
-      }, function (err, response) {
-          // just for debugging
-          console.log(response.body);
-      })};
-      
-
+          formData: {
+            token: slackToken,
+            tile: "Image",
+            filename: "image.png",
+            filetype: "auto",
+            channels: msg.channel,
+            file: require('fs').createReadStream('./image.png'),
+          },
+        }, 
+          function (err, response) {
+            console.log(response.body);
+          }
+        )
+      };  
+    } 
+    else if ( msg.text.substring(0,9) === 'register ' ) {
+      if(msg.channel[0] === "D" && msg.bot_id === undefined) {
+        let unparsedSignatureInfo = msg.text.split(msg.text.substring(0,9)).pop();
+        let space = unparsedSignatureInfo.split('x').shift();
+        let timestampAddressAndSignature = unparsedSignatureInfo.substring(unparsedSignatureInfo.indexOf(space) + 1, unparsedSignatureInfo.length)
+        let timestamp = timestampAddressAndSignature.split('0x').shift().substring(1, timestampAddressAndSignature.length);
+        let addressAndSignature = timestampAddressAndSignature.substring(timestamp.length, timestampAddressAndSignature.length);
+        let userAddress = '0' + addressAndSignature.substring(2, addressAndSignature.length).split('0x').shift();
+        let signature = '0x' + addressAndSignature.substring(2, addressAndSignature.length).split('0x').pop();
+        let sigParams = ethers.utils.splitSignature(signature);
+        let r = sigParams.r;
+        let s = sigParams.s;
+        let v = sigParams.v;
+        console.log(userAddress);
+        try{
+          let index = await accessControls.getUserIndexInWhitelist(userAddress, space);
+          console.log('hi')
+          let valid = await accessControls.verifySignature(index, timestamp, userAddress, space, v, r, s);
+          console.log(valid);
+        }
+        catch(err){
+          console.log(err)
+        }
     }
-})
+  }
+}})
+
+// // bot.on("message", async msg => {
+// //     switch (msg.text) {
+// //       case "photobomb":
+//         if (msg.channel && msg.bot_id === undefined) {
+//           let spaceId = {spaceId: 15};
+//           let img = await getImage(spaceId.spaceId);
+//           let imgAsBase64 = img.substring(img.indexOf(',') + 1)
+//           require('fs').writeFileSync('image.png', imgAsBase64, 'base64', (err) => {
+//             console.log(err);
+//           })
+
+//           await request.post({ url: 'https://slack.com/api/files.upload',
+//           formData: {
+//             token: slackToken,
+//             tile: "Image",
+//             filename: "image.png",
+//             filetype: "auto",
+//             channels: msg.channel,
+//             file: require('fs').createReadStream('./image.png'),
+//           },
+//         }, function (err, response) {
+//             // just for debugging
+//             console.log(response.body);
+//         })};  
+// //     }
+// // })
+
+// // bot.on('message', async msg => {
+// //   if(msg.text.substring(0, 9) === "register "){
+// //     if (msg.channel[0] === 'D' && msg.bot_id === undefined) {
+// //       console.log('hi')
+// //       }
+//       if(msg.channel[0] === "D" && msg.bot_id === undefined) {
+//         let unparsedSignatureInfo = msg.text.substr(0,8);
+//         let space = unparsedSignatureInfo.split("0x").pop();
+//         console.log(space); 
+// //   }
+// //   }
+// // )
